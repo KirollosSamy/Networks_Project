@@ -5,7 +5,15 @@ package networks_project;
 // TODO documentation
 //
 network Network
-{
+{    parameters:
+        int WS = default(3);
+        int TO = default(10);
+        double PT = default(0.5);
+        double TD = default(1);
+        double ED = default(4);
+        double DD = default(0.1);
+        double LP = default(0);
+        
     @display("bgb=510,263");
     submodules:
         coordinator: Coordinator {
