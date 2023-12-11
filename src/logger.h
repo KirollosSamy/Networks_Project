@@ -31,7 +31,7 @@ struct LogData {
 
 class Logger
 {
-    std::ofstream* logfile;
+    std::ofstream logfile;
 
 public:
     Logger(std::string filename);

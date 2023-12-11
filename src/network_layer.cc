@@ -5,7 +5,7 @@ NetworkLayer::NetworkLayer(std::string filename) {
     file.open(filename);
 
     if (!file.is_open()) {
-        std::cerr << "Error opening the file." << std::endl;
+        std::cerr << "Error opening the input file." << std::endl;
     }
 }
 
