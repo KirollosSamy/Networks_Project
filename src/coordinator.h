@@ -2,6 +2,7 @@
 #define __NETWORKS_PROJECT_COORDINATOR_H_
 
 #include <omnetpp.h>
+#include "defs.h"
 
 using namespace omnetpp;
 

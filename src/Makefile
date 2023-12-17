@@ -36,9 +36,11 @@ O = $(PROJECT_OUTPUT_DIR)/$(CONFIGNAME)/$(PROJECTRELATIVE_PATH)
 OBJS = \
     $O/coordinator.o \
     $O/defs.o \
+    $O/go_back.o \
     $O/logger.o \
     $O/network_layer.o \
     $O/Node.o \
+    $O/utils.o \
     $O/frame_m.o
 
 # Message files

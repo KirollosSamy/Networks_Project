@@ -2,17 +2,20 @@
 #define __NETWORKS_PROJECT_NODE_H_
 
 #include <omnetpp.h>
+#include "defs.h"
+#include "utils.h"
+#include "go_back.h"
 
 using namespace omnetpp;
 
-/**
- * TODO - Generated class
- */
+
 class Node : public cSimpleModule
 {
-  protected:
-    virtual void initialize() override;
-    virtual void handleMessage(cMessage *msg) override;
+  int  node_id;
+
+protected:
+  virtual void initialize() override;
+  virtual void handleMessage(cMessage* msg) override;
 };
 
 #endif
