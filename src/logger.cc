@@ -1,6 +1,9 @@
 #include "logger.h"
 #include <iomanip>
 #include <iostream>
+#include <omnetpp.h>
+
+using namespace omnetpp;
 
 Logger::Logger(std::string filename)
 {
