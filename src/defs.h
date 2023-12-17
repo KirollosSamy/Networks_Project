@@ -1,3 +1,5 @@
+// definition of each variables, asamy el bytes w keda.
+
 #ifndef DEFS_H
 #define DEFS_H
 

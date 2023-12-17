@@ -31,6 +31,7 @@ struct LogData {
 
 class Logger
 {
+//    the file in which we will log inside.
     std::ofstream logfile;
 
 public:
@@ -43,6 +44,10 @@ public:
     // TIME_OUT: seqnum
     // CONTROL: frame_type, seqnum, lost
     // RECEIVING: payload, seqnum
+
+// LogData should contain the needed data for each type
+//    LogData lgData = {.time= 1, .delay}
+//    log(LogType::Sending,lgData)
 
 };
 

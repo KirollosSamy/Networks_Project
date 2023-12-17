@@ -8,6 +8,7 @@
 class NetworkLayer {
     std::ifstream file;
 public:
+//    just read the message from the input file.
     NetworkLayer(std::string filename);
     bool getMsg(ErrorCode& error_code, std::string& payload);
     ~NetworkLayer();

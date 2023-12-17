@@ -9,6 +9,7 @@ NetworkLayer::NetworkLayer(std::string filename) {
     }
 }
 
+// this function reads only one line, and if there is no more lines, it just return false.
 bool NetworkLayer::getMsg(ErrorCode& error_code, std::string& payload) {
     std::string error;
     file >> error >> std::ws;
@@ -19,6 +20,8 @@ bool NetworkLayer::getMsg(ErrorCode& error_code, std::string& payload) {
     if(file.eof()) return false;
     return true;
 }
+
+// to use it -> While (getMsg) ...
 
 NetworkLayer::~NetworkLayer() {
     file.close();
