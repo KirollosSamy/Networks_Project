@@ -12,11 +12,13 @@ void Coordinator::initialize()
     }
 
     int starting_node;
-    std::string starting_time;
+    float starting_time;
     file >> starting_node >> starting_time;
 
-    cMessage* start_msg = new cMessage(starting_time.c_str());
-    send(start_msg, "out", starting_node);
+    // send the initial send_frame msg to the sender at the required starting time
+    cMessage* start_msg = new cMessage();
+    start_msg->setKind((short int)MsgType::SEND_FRAME);
+    sendDelayed(start_msg, starting_time, "out", starting_node);
 }
 
 void Coordinator::handleMessage(cMessage* msg) {}
