@@ -28,7 +28,6 @@ void Node::handleMessage(cMessage* msg)
     }
     else if(msg->getKind() == (short)MsgType::SEND_FRAME){
         // Network layer ready event
-
         Time time = 0; //replace with the actual time to send, I guess simtime() + PT
         cMessage* msg = new cMessage();
         msg->setKind((short)MsgType::SEND_FRAME);

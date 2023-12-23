@@ -17,50 +17,12 @@
 #endif
 
 class Frame;
-/**
- * Class generated from <tt>frame.msg:2</tt> by opp_msgtool.
- * <pre>
- * packet Frame
- * {
- *     \@customize(true);
- *     unsigned int Header;
- *     string Payload;
- *     char Trailer;
- *     int FrameType;
- *     unsigned int AckNum;
- * }
- * </pre>
- *
- * Frame_Base is only useful if it gets subclassed, and Frame is derived from it.
- * The minimum code to be written for Frame is the following:
- *
- * <pre>
- * class Frame : public Frame_Base
- * {
- *   private:
- *     void copy(const Frame& other) { ... }
-
- *   public:
- *     Frame(const char *name=nullptr, short kind=0) : Frame_Base(name,kind) {}
- *     Frame(const Frame& other) : Frame_Base(other) {copy(other);}
- *     Frame& operator=(const Frame& other) {if (this==&other) return *this; Frame_Base::operator=(other); copy(other); return *this;}
- *     virtual Frame *dup() const override {return new Frame(*this);}
- *     // ADD CODE HERE to redefine and implement pure virtual functions from Frame_Base
- * };
- * </pre>
- *
- * The following should go into a .cc (.cpp) file:
- *
- * <pre>
- * Register_Class(Frame)
- * </pre>
- */
 class Frame_Base : public ::omnetpp::cPacket
 {
 protected:
     unsigned int Header = 0;
     omnetpp::opp_string Payload;
-    char Trailer = 0;
+    char Trailer = 0; // this carries the check sum. 
     int FrameType = 0;
     unsigned int AckNum = 0;
 
