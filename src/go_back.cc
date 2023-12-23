@@ -38,14 +38,19 @@ omnetpp::opp_string GoBackN ::applyByteStuffing(omnetpp::opp_string Payload)
     this is done by appending the flag at the begining, then append the payload after applying the byte stuffing
     Then at the end append the trailing flag.
 */
-omnetpp::opp_string GoBackN ::framing(omnetpp::opp_string Payload)
+omnetpp::opp_string GoBackN ::framing(omnetpp::opp_string Payload, Frame_Base &*frame)
 {
     omnetpp::opp_string newPayload;
 
     // first we append the starting flag
     newPayload += FLAG;
+
     // then apply byte stuffing
     newPayload += applyByteStuffing(Payload);
+
+    // append the checksum
+    createCheckSum(Payload, frame);
+
     // finally we append the ending flag
     newPayload += FLAG;
 
@@ -166,6 +171,10 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
         // ready to send
         // TODO: just send the next packet.
         // 1. create a new frame, then send it.
+        Frame_Base *sentFrame = new Frame_Base(); 
+
+        // 2. read the current msg to be sent. 
+        
         break;
     case Event::FRAME_ARRIVAL:
         // TODO: check on type of frame if Data, do receiver logic. If ACK or NAck do sender logic (DONE)
@@ -174,15 +183,33 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
             if (frame->getFrameType() == FrameType::DATA)
             {
                 // TODO: do the reciever logic.
+                // 1. get the payload
                 const char *payload = frame->getPayload();
+
+                // 2. check that this is the seq num I am waiting for.
+                //! hena el mfrod a3rf ezay baa?, bl header y3ny wla a?
+
+                // 3. check if there is an error or not, using the check sum
+                bool valid = validateCheckSum(payload);
+                if (valid)
+                {
+                    // 4.1 send +ve Ack
+                }
+                else
+                {
+                    // 4.2 send -ve Ack
+                }
             }
             else if (frame->getFrameType() == FrameType::ACK)
             {
                 // TODO: do the ack logic
+                // we need to move the window one step forward
             }
             else
             {
                 // TODO: do the NACK logic.
+                // we need to stop any processing.
+                // then retransmit from the errored packet.
             }
         }
         else
@@ -195,7 +222,7 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
     case Event::TIMEOUT:
         // TODO: we need to start retransmitting all from the begining of the sliding window, and re-set all the timers.
         break;
-    case Event::CHECKSUM_ERR:
+    case Event::CHECKSUM_ERR: // ezay bn3rf da mn bara, msh el mfrod el validation by7sl gowa el data?
         // TODO: we need to send NACK on this packet.
         break;
 

@@ -23,7 +23,7 @@ public:
     // Abdelazizs' functions
 private: 
     bool thereIsAnError(std::vector<std::bitset<8>> &wordBytes, std::bitset<8>parityByte);
-    void framing(omnetpp::opp_string Payload); 
+    void framing(omnetpp::opp_string Payload, Frame_Base &*frame); 
     omnetpp::opp_string applyByteStuffing(omnetpp::opp_string Payload); 
     void createCheckSum (omnetpp::opp_string Payload); 
     Byte binaryAddition(std::vector<Byte> bytes); 
