@@ -5,7 +5,7 @@
 #include "frame_m.h"
 #include "logger.h"
 #include "network_layer.h"
-#include "vector"
+#include <deque>
 #include <omnetpp.h>
 
 using namespace std;
@@ -29,9 +29,10 @@ public:
 private:
     bool thereIsAnError(std::vector<std::bitset<8>> &wordBytes, std::bitset<8> parityByte);
     std::string framing(std::string Payload, Frame_Base *frame);
+    std::string deFraming(string framedPayload);
     std::string applyByteStuffing(std::string Payload);
     void createCheckSum(std::string Payload, Frame_Base *frame);
-    Byte binaryAddition(std::vector<Byte> bytes);
+    Byte binaryAddition(std::deque<Byte> bytes);
     bool validateCheckSum(std::string Payload, Frame_Base *frame);
 };
 
