@@ -4,24 +4,28 @@ GoBackN::GoBackN(int WS, NetworkParameters parameters, int node_id)
 {
     MAX_SEQUENCE = WS; // as stated in the document, the maximum seq number is the window size.
     par = parameters;
-    buffer = new Frame_Base[MAX_SEQUENCE + 1];
+    buffer = std::vector<Frame_Base>(WS + 1);
 
     network_layer = new NetworkLayer("../input/input" + std::to_string(node_id) + ".txt");
     logger = new Logger("../log/out.log");
+    EV << "Go back N is initialized successfully from node number " << node_id << endl;
+    if (DEBUG){
+        // lets test all our functions here. 
+        
+    }
 }
 
 GoBackN::~GoBackN()
 {
-    delete[] buffer;
 }
 
 /*
     This function applies the byte stuffing algorithm, by iterating over each character in the original payload
     then if the char was flag or esc, it append the esc before it.
 */
-omnetpp::opp_string GoBackN ::applyByteStuffing(omnetpp::opp_string Payload)
+std::string GoBackN ::applyByteStuffing(std::string Payload)
 {
-    omnetpp::opp_string newPayload;
+    std::string newPayload;
     for (auto c : Payload)
     {
         // append the ESC before any Flag or ESC
@@ -38,9 +42,9 @@ omnetpp::opp_string GoBackN ::applyByteStuffing(omnetpp::opp_string Payload)
     this is done by appending the flag at the begining, then append the payload after applying the byte stuffing
     Then at the end append the trailing flag.
 */
-omnetpp::opp_string GoBackN ::framing(omnetpp::opp_string Payload, Frame_Base &*frame)
+std::string GoBackN ::framing(std::string Payload, Frame_Base *frame)
 {
-    omnetpp::opp_string newPayload;
+    std::string newPayload;
 
     // first we append the starting flag
     newPayload += FLAG;
@@ -77,7 +81,7 @@ Byte GoBackN ::binaryAddition(std::vector<Byte> bytes)
         return Byte(0);
     Byte result = bytes[bytes.size() - 1];
     bytes.pop_back();
-    if (bytes.empty)
+    if (bytes.empty())
         return result;
     for (auto byte : bytes)
     {
@@ -116,7 +120,7 @@ Byte GoBackN ::binaryAddition(std::vector<Byte> bytes)
 
     ? NOTE: i am sending the frame pointer by reference to save the appended check sum.
 */
-void GoBackN::createCheckSum(omnetpp::opp_string Payload, Frame_Base &*frame)
+void GoBackN::createCheckSum(std::string Payload, Frame_Base *frame)
 {
     // 1. convert all the characters into bytes.
     std::vector<Byte> bytes;
@@ -140,7 +144,7 @@ void GoBackN::createCheckSum(omnetpp::opp_string Payload, Frame_Base &*frame)
 /*
     This function is responsible for validating the message using the checksum
 */
-bool GoBackN::validateCheckSum(omnetpp::opp_string Payload, Frame_Base *frame)
+bool GoBackN::validateCheckSum(std::string Payload, Frame_Base *frame)
 {
     // 1. get the checksum in form of byte
     Byte checkSum(frame->getTrailer());
@@ -171,16 +175,16 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
         // ready to send
         // TODO: just send the next packet.
         // 1. create a new frame, then send it.
-        Frame_Base *sentFrame = new Frame_Base(); 
+        // Frame_Base *sentFrame = new Frame_Base();
 
-        // 2. read the current msg to be sent. 
-        
+        // 2. read the current msg to be sent.
+
         break;
     case Event::FRAME_ARRIVAL:
         // TODO: check on type of frame if Data, do receiver logic. If ACK or NAck do sender logic (DONE)
         if (frame)
-        { // this should always be true.
-            if (frame->getFrameType() == FrameType::DATA)
+        {                                   // this should always be true.
+            if (frame->getFrameType() == 2) // FrameType::DATA
             {
                 // TODO: do the reciever logic.
                 // 1. get the payload
@@ -188,9 +192,11 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
 
                 // 2. check that this is the seq num I am waiting for.
                 //! hena el mfrod a3rf ezay baa?, bl header y3ny wla a?
+                //! hena el mfrod a3ml variable, by-carry el sequence elly el mfrod ygele delw2ty, wlama as2tbl 7aga gdeda, el mfrod eny a-check hya
+                //! el 7aga elly ana mestneha wla laa.
 
                 // 3. check if there is an error or not, using the check sum
-                bool valid = validateCheckSum(payload);
+                bool valid = validateCheckSum(payload, frame);
                 if (valid)
                 {
                     // 4.1 send +ve Ack
@@ -200,7 +206,7 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
                     // 4.2 send -ve Ack
                 }
             }
-            else if (frame->getFrameType() == FrameType::ACK)
+            else if (frame->getFrameType() == 1) // FrameType::ACK
             {
                 // TODO: do the ack logic
                 // we need to move the window one step forward
@@ -214,20 +220,18 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
         }
         else
         {
-            EV << "How come the frame is empty? \n";
+            // EV << "How come the frame is empty? \n";
         }
 
         break;
 
-    case Event::TIMEOUT:
+    default:
+        // case Event::TIMEOUT:
         // TODO: we need to start retransmitting all from the begining of the sliding window, and re-set all the timers.
         break;
-    case Event::CHECKSUM_ERR: // ezay bn3rf da mn bara, msh el mfrod el validation by7sl gowa el data?
-        // TODO: we need to send NACK on this packet.
-        break;
-
-    default:
-        break;
+        // case Event::CHECKSUM_ERR: // ezay bn3rf da mn bara, msh el mfrod el validation by7sl gowa el data?
+        //     // TODO: we need to send NACK on this packet.
+        //     break;
     }
 
     return response;
