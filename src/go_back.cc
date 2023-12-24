@@ -18,18 +18,15 @@ GoBackN::GoBackN(int WS, NetworkParameters parameters, int node_id)
         Byte trailer = (Byte)frame->getTrailer();
         EV << trailer.to_string() << endl
            << framed << endl;
-        int len = framed.length();
-        std::string unFramedPayload = "";
-        for (int i = 1; i < len - 1; i++)
-            unFramedPayload += framed[i];
-        EV << validateCheckSum(unFramedPayload, frame) << endl;
+        //! The below line generates an error, and I do not know why!
+        // string deframed = deFraming(framed);
+        EV << validateCheckSum(deframed, frame) << endl;
     }
 }
 
 GoBackN::~GoBackN()
 {
 }
-
 
 /*
     This function is responsible for applying binary addition as a utility for the checkSum
@@ -110,7 +107,7 @@ bool GoBackN::validateCheckSum(std::string Payload, Frame_Base *frame)
 {
     EV << "recieved string is : " << Payload << endl;
     // 1. get the checksum in form of byte
-    Byte checkSum (frame->getTrailer()); 
+    Byte checkSum(frame->getTrailer());
 
     // 2. convert the payLoad into bytes, and append the checkSum with them
     std::deque<Byte> bytes;
@@ -125,7 +122,8 @@ bool GoBackN::validateCheckSum(std::string Payload, Frame_Base *frame)
     Byte onesComplement = ~summation;
 
     // 5. if 0 return true, else return false.
-    EV << checkSum.to_string() << endl << onesComplement.to_string() << endl; 
+    EV << checkSum.to_string() << endl
+       << onesComplement.to_string() << endl;
     return checkSum == onesComplement;
 }
 
@@ -201,7 +199,7 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
     case Event::FRAME_ARRIVAL:
         // TODO: check on type of frame if Data, do receiver logic. If ACK or NAck do sender logic (DONE)
         if (frame)
-        {                                   // this should always be true.
+        {                                                      // this should always be true.
             if (frame->getFrameType() == (int)FrameType::DATA) // FrameType::DATA
             {
                 // TODO: do the reciever logic.
@@ -224,7 +222,7 @@ ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
                     // 4.2 send -ve Ack
                 }
             }
-            else if (frame->getFrameType() == 1) // FrameType::ACK
+            else if (frame->getFrameType() == (int)FrameType::ACK) // FrameType::ACK
             {
                 // TODO: do the ack logic
                 // we need to move the window one step forward
