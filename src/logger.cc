@@ -7,16 +7,27 @@ using namespace omnetpp;
 
 Logger::Logger(std::string filename)
 {
-    logfile.open(filename);
+    // logfile.open(filename);
+    // if (!logfile.is_open())
+    // {
+    //     std::cerr << "Error opening the log file." << std::endl;
+    // }
+    this->fileName = filename;
+}
 
+/*
+    This function is responsible for writing in the file.
+    el type howa no3 el 7aga elly hattktb.
+    el data de el 7aga elly hattktb fe3ln baa w da bykon struct.
+*/
+bool Logger::log(LogType type, LogData data)
+{
+    logfile.open(this->fileName);
     if (!logfile.is_open())
     {
         std::cerr << "Error opening the log file." << std::endl;
+        return false;
     }
-}
-
-void Logger::log(LogType type, LogData data)
-{
     switch (type)
     {
         //     in each case, we need to duplicate the same msg using EV, before the break.
@@ -78,4 +89,7 @@ void Logger::log(LogType type, LogData data)
            << data.payload << "] and seq_num=[" << data.seq_num << "] to the network layer." << std::endl;
         break;
     }
+    // each time we open the file and write into it, then close the file again.
+    logfile.close();
+    return true;
 }

@@ -13,7 +13,8 @@ enum class LogType
     RECEIVING
 };
 
-struct LogData {
+struct LogData
+{
     Time time;
     int node;
 
@@ -31,24 +32,24 @@ struct LogData {
 
 class Logger
 {
-//    the file in which we will log inside.
+    //  the file in which we will log inside.
     std::ofstream logfile;
+    std::string fileName;
 
 public:
     Logger(std::string filename);
 
-    void log(LogType type, LogData data);
+    bool log(LogType type, LogData data);
 
     // PROCESSING: error_code
-    // SENDING: payload, seqnum, trailer, modified, duplicate, delay, lost 
+    // SENDING: payload, seqnum, trailer, modified, duplicate, delay, lost
     // TIME_OUT: seqnum
     // CONTROL: frame_type, seqnum, lost
     // RECEIVING: payload, seqnum
 
-// LogData should contain the needed data for each type
-//    LogData lgData = {.time= 1, .delay}
-//    log(LogType::Sending,lgData)
-
+    // LogData should contain the needed data for each type
+    //    LogData lgData = {.time= 1, .delay}
+    //    log(LogType::Sending,lgData)
 };
 
 #endif
