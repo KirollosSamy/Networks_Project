@@ -21,7 +21,7 @@ struct LogData
     SeqNum seq_num;
     std::string payload;
     FrameType frame_type;
-    ErrorCode error_code;
+    FrameErrorCode error_code;
     bool lost;
 
     Byte trailer;

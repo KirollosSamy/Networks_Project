@@ -11,20 +11,24 @@ NetworkLayer::NetworkLayer(std::string filename)
     }
 }
 
-// this function reads only one line, and if there is no more lines, it just return false.
+// this function reads only one line, and if there is no more lines, it just returns false.
 /*
     this return the error code and the payload.
 */
-bool NetworkLayer::getMsg(ErrorCode &error_code, std::string &payload)
+bool NetworkLayer::getMsg(FrameErrorCode &error_code, std::string &payload)
 {
-    std::string error;
-    file >> error >> std::ws;
-    error_code = ErrorCode(error);
-
-    std::getline(file, payload);
-
+    // check if the file is now finshed or empty. 
     if (file.eof())
         return false;
+    
+    // read the first four bits. 
+    std::string error;
+    file >> error >> std::ws;
+    error_code = FrameErrorCode(error);
+
+    // read the msg. 
+    std::getline(file, payload);
+
     return true;
 }
 

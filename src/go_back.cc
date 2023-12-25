@@ -1,27 +1,27 @@
 #include "go_back.h"
 
-GoBackN::GoBackN(int WS, NetworkParameters parameters, int node_id)
+GoBackN::GoBackN()
+{
+    // empty default constructor.
+}
+
+GoBackN::GoBackN(int WS, NetworkParameters parameters, int node_id, cSimpleModule *node_ptr)
 {
     MAX_SEQUENCE = WS; // as stated in the document, the maximum seq number is the window size.
     par = parameters;
-    buffer = std::vector<Frame_Base>(WS + 1);
+
+    buffer = std::vector<Frame_Base *>(WS + 1);
+    Timers = std::vector<cMessage *>(WS + 1);
 
     network_layer = new NetworkLayer("../input/input" + std::to_string(node_id) + ".txt");
     logger = new Logger("../log/out.log");
-    EV << "Go back N is initialized successfully from node number " << node_id << endl;
-    if (DEBUG)
-    {
-        // deFraming("7amada");
-        string payLoad = "Z$i/zo";
-        Frame_Base *frame = new Frame_Base();
-        string framed = framing(payLoad, frame);
-        Byte trailer = (Byte)frame->getTrailer();
-        EV << trailer.to_string() << endl
-           << framed << endl;
-        //! The below line generates an error, and I do not know why!
-        // string deframed = deFraming(framed);
-        EV << validateCheckSum(deframed, frame) << endl;
-    }
+
+    // initially all of them are 0.
+    frame_expected = 0;
+    next_frame_to_send = 0;
+    ack_expected = 0;
+    num_outstanding_frames = 0;
+    node = node_ptr;
 }
 
 GoBackN::~GoBackN()
@@ -34,7 +34,7 @@ GoBackN::~GoBackN()
     binary addition once again. (the algorithm work in this way).
     TESTED
 */
-Byte GoBackN ::binaryAddition(std::deque<Byte> bytes)
+Byte GoBackN::binaryAddition(std::deque<Byte> bytes)
 {
     if (bytes.empty())
         return Byte(0);
@@ -78,13 +78,13 @@ Byte GoBackN ::binaryAddition(std::deque<Byte> bytes)
 
     TESTED
 */
-void GoBackN::createCheckSum(std::string Payload, Frame_Base *frame)
+char GoBackN::createCheckSum(std::string Payload)
 {
     // 1. convert all the characters into bytes.
     std::deque<Byte> bytes;
     for (auto c : Payload)
         bytes.push_back(Byte(c));
-
+ 
     // 2. apply binary addition on them
     //! we need to be careful for the carry.
     Byte summation = binaryAddition(bytes);
@@ -93,18 +93,17 @@ void GoBackN::createCheckSum(std::string Payload, Frame_Base *frame)
     Byte onesComplement = ~summation;
 
     // 4. convert the checkSum into char.
-    char checkSum = (char)onesComplement.to_ulong();
-
-    // 5. append the checkSum in the trailer.
-    frame->setTrailer(checkSum);
+    return (char)onesComplement.to_ulong();
 }
 
 /*
     This function is responsible for validating the message using the checksum
     TESTED
 */
-bool GoBackN::validateCheckSum(std::string Payload, Frame_Base *frame)
+bool GoBackN::validateCheckSum(Frame_Base *frame)
 {
+    std::string Payload = frame->getPayload();
+
     EV << "recieved string is : " << Payload << endl;
     // 1. get the checksum in form of byte
     Byte checkSum(frame->getTrailer());
@@ -127,13 +126,23 @@ bool GoBackN::validateCheckSum(std::string Payload, Frame_Base *frame)
     return checkSum == onesComplement;
 }
 
-std::string deFraming(string framedPayload)
+/*
+    Utility function used to remove the start and end flags.
+    and remove the stuffed bytes.
+*/
+std::string GoBackN::deFraming(Frame_Base *recievedFrame)
 {
-    int len = framedPayload.length();
+    string recievedPayload = recievedFrame->getPayload();
+
+    int len = recievedPayload.length();
     std::string unFramedPayload = "";
+
+    // just to remove the start and the end flags.
     for (int i = 1; i < len - 1; i++)
-        unFramedPayload += framedPayload[i];
-    return unFramedPayload;
+        unFramedPayload += recievedPayload[i];
+
+    string unStuffedPayload = removeByteStuffing(unFramedPayload);
+    return unStuffedPayload;
 }
 
 /*
@@ -141,7 +150,7 @@ std::string deFraming(string framedPayload)
     then if the char was flag or esc, it append the esc before it.
     TESTED.
 */
-std::string GoBackN ::applyByteStuffing(std::string Payload)
+std::string GoBackN::applyByteStuffing(std::string Payload)
 {
     std::string newPayload;
     for (auto c : Payload)
@@ -156,13 +165,45 @@ std::string GoBackN ::applyByteStuffing(std::string Payload)
 }
 
 /*
+    This is a utility function used to apply deframing at the reciever side.
+    TESTED
+*/
+std::string GoBackN::removeByteStuffing(std::string payload)
+{
+    bool findEsc = false;
+    std::string newPayload = "";
+
+    for (char c : payload)
+    {
+        if (findEsc)
+        {
+            findEsc = false;
+            newPayload += c;
+            continue;
+        }
+        if (c == ESC)
+        {
+            findEsc = true;
+            continue;
+        }
+        newPayload += c;
+    }
+    return newPayload;
+}
+
+/*
     This function is responsible for applying the framing on the payload only
     this is done by appending the flag at the begining, then append the payload after applying the byte stuffing
     Then at the end append the trailing flag.
     TESTED
 */
-std::string GoBackN ::framing(std::string Payload, Frame_Base *frame)
+
+Frame_Base *GoBackN::framing(std::string Payload)
 {
+    Frame_Base *frame = new Frame_Base();
+    // we always send a data. 
+    frame->setFrameType(FrameType::DATA);
+
     std::string newPayload;
 
     // first we append the starting flag
@@ -172,83 +213,164 @@ std::string GoBackN ::framing(std::string Payload, Frame_Base *frame)
     Payload = applyByteStuffing(Payload);
     newPayload += Payload;
 
-    // append the checksum
-    createCheckSum(Payload, frame);
-
     // finally we append the ending flag
     newPayload += FLAG;
 
-    return newPayload;
+    // append the checksum
+    char checkSum = createCheckSum(newPayload);
+
+    // append the sequence number in the header.
+    frame->setHeader(next_frame_to_send);
+
+    // Append the checkSum in the trailer.
+    frame->setTrailer(checkSum);
+
+    return frame;
 }
 
-ProtocolResponse GoBackN::protocol(Event event, Frame_Base *frame)
+void GoBackN::startTimer(SeqNum frame_num)
 {
-    ProtocolResponse response;
+    cMessage *timer_msg = new cMessage();
+    timer_msg->setKind((short)MsgType::TIMEOUT);
+
+    Timers[frame_num] = timer_msg;
+
+    node->scheduleAt(simTime().dbl() + par.TO, timer_msg);
+}
+
+/*
+    This function is us
+*/
+void GoBackN::stopTimer(SeqNum frame_num)
+{
+    // TODO: how the hell are we going to stop the time?
+    cMessage *timer_msg = Timers[frame_num];
+
+    // This is used to cancel the timer msg previously sent, thus canceling the timer
+    node->cancelEvent(timer_msg);
+    delete timer_msg;
+}
+
+void GoBackN::send(SeqNum frame_num, Time delay)
+{
+    Frame_Base *frame = buffer[frame_num];
+    node->sendDelayed(frame, delay, "out");
+    startTimer(frame_num);
+}
+
+/*
+    utility function used to increment the value of the sequnce number,
+    and get it back to 0 if it exceeded the maximum sequnce value.
+*/
+void GoBackN::increment(SeqNum &seq)
+{
+    seq = (seq + 1) % MAX_SEQUENCE;
+}
+
+bool GoBackN::protocol(Event event, Frame_Base *frame)
+{
+    bool more_frames = true;
+    FrameErrorCode error_code;
+    std::string payLoad = "";
 
     switch (event)
     {
     case Event::NETWORK_LAYER_READY:
-        // ready to send
-        // TODO: just send the next packet.
-        // 1. create a new frame, then send it.
-        // Frame_Base *sentFrame = new Frame_Base();
+        more_frames = network_layer->getMsg(error_code, payLoad);
 
-        // 2. read the current msg to be sent.
+        // TODO: Handle error code
+
+        if (more_frames)
+        {
+            // 1. apply framing
+            Frame_Base *newFrame = framing(payLoad);
+
+            // we just need to send it
+            Time delay = 0;
+            //! we still need to apply the delay logic, depending on the error code.
+            send(next_frame_to_send, delay);
+            num_outstanding_frames++;
+            increment(next_frame_to_send);
+        }
 
         break;
     case Event::FRAME_ARRIVAL:
-        // TODO: check on type of frame if Data, do receiver logic. If ACK or NAck do sender logic (DONE)
-        if (frame)
-        {                                                      // this should always be true.
-            if (frame->getFrameType() == (int)FrameType::DATA) // FrameType::DATA
+
+        /* Ack n implies n − 1, n − 2, etc. Check for this. */
+        // while (between(ack expected, r.ack, next frame to send)) {
+        //     /* Handle piggybacked ack. */
+        //     nbuffered = nbuffered − 1; /* one frame fewer buffered */
+        //     stop timer(ack expected); /* frame arrived intact; stop timer */
+        //     inc(ack expected); /* contract sender’s window */
+        // }
+
+        if (frame->getFrameType() == (int)FrameType::DATA) // FrameType::DATA
+        {
+            // TODO: do the reciever logic.
+
+            // 1. check that this is the seq num I am waiting for.
+            //! hena el mfrod a3rf ezay baa?, bl header y3ny wla a?
+            //! hena el mfrod a3ml variable, by-carry el sequence elly el mfrod ygele delw2ty, wlama as2tbl 7aga gdeda, el mfrod eny a-check hya
+            //! el 7aga elly ana mestneha wla laa.
+            int recieved_seq_num = frame->getHeader();
+            if (recieved_seq_num == frame_expected)
             {
-                // TODO: do the reciever logic.
-                // 1. get the payload
-                const char *payload = frame->getPayload();
-
-                // 2. check that this is the seq num I am waiting for.
-                //! hena el mfrod a3rf ezay baa?, bl header y3ny wla a?
-                //! hena el mfrod a3ml variable, by-carry el sequence elly el mfrod ygele delw2ty, wlama as2tbl 7aga gdeda, el mfrod eny a-check hya
-                //! el 7aga elly ana mestneha wla laa.
-
                 // 3. check if there is an error or not, using the check sum
-                bool valid = validateCheckSum(payload, frame);
+                bool valid = validateCheckSum(frame);
                 if (valid)
                 {
                     // 4.1 send +ve Ack
+                    string received_payload = deFraming(frame);
+
+                    // create ack frame
+                    Frame_Base *ack_frame = new Frame_Base();
+                    ack_frame->setAckNum(frame_expected + 1); // we ack the next correct frame, so it is the expected + 1
+                    increment(frame_expected);
+                    ack_frame->setFrameType(FrameType::ACK);
+                    node->send(ack_frame, "out");
+
                 }
                 else
                 {
                     // 4.2 send -ve Ack
+                    Frame_Base* nack_frame = new Frame_Base();
+                    nack_frame->setAckNum(frame_expected); // we ack the next correct frame, so it is the expected + 1
+                    nack_frame->setFrameType(FrameType::NACK);
+                    node->send(nack_frame, "out");
                 }
-            }
-            else if (frame->getFrameType() == (int)FrameType::ACK) // FrameType::ACK
-            {
-                // TODO: do the ack logic
-                // we need to move the window one step forward
             }
             else
             {
-                // TODO: do the NACK logic.
-                // we need to stop any processing.
-                // then retransmit from the errored packet.
+                // just keep silent.
+                // NACK are not sent on out of order messages. 
             }
+        }
+
+        // Sender
+        else if (frame->getFrameType() == (int)FrameType::ACK) // FrameType::ACK
+        {
+            // TODO: do the ack logic
+            // we need to move the window one step forward
         }
         else
         {
-            // EV << "How come the frame is empty? \n";
+            // TODO: do the NACK logic.
+            // we need to stop any processing.
+            // then retransmit from the errored packet.
         }
 
         break;
 
-    default:
-        // case Event::TIMEOUT:
-        // TODO: we need to start retransmitting all from the begining of the sliding window, and re-set all the timers.
-        break;
-        // case Event::CHECKSUM_ERR: // ezay bn3rf da mn bara, msh el mfrod el validation by7sl gowa el data?
-        //     // TODO: we need to send NACK on this packet.
-        //     break;
+    case Event::TIMEOUT:
+        next_frame_to_send = ack_expected;
+        for (int i = 1; i <= num_outstanding_frames; i++)
+        {
+            // TODO: calculate the delay required to send the given frame
+            Time delay = 0;
+            send(next_frame_to_send, delay);
+            increment(next_frame_to_send);
+        }
     }
 
-    return response;
+    return true;
 }

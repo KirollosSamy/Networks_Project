@@ -58,6 +58,7 @@ class Frame;
 class Frame_Base : public ::omnetpp::cPacket
 {
 protected:
+  // the header contains the sequence number.
   unsigned int Header = 0;
   omnetpp::opp_string Payload;
   char Trailer = 0;
