@@ -10,30 +10,51 @@
 
 using namespace std;
 using namespace omnetpp;
+
 class GoBackN
 {
     NetworkParameters par;
 
     int MAX_SEQUENCE;
-    vector<Frame_Base> buffer;
+    vector<Frame_Base *> buffer;
+    vector<cMessage *> Timers;
 
     NetworkLayer *network_layer;
     Logger *logger;
-    bool DEBUG = true; 
+
+    // This variable represents the receiver window (of size 1)
+    SeqNum frame_expected; // The sequence number expected by the receiver
+
+    // The sender window is between [ack_expected, next_frame_to_send]
+    SeqNum next_frame_to_send;  // The sequence number of the frame to be send
+    SeqNum ack_expected;        // The sequence number of the first unacknowledged frame
+    int num_outstanding_frames; // The number of frames currently in buffer (must be <= MAX_SEQUENCE)
+
+    bool DEBUG = true;
+
+    cSimpleModule *node;
+
 public:
-    GoBackN(int WS, NetworkParameters parameters, int node_id);
+    GoBackN(int WS, NetworkParameters parameters, int node_id, cSimpleModule *node_ptr);
+    GoBackN();
     ~GoBackN();
-    ProtocolResponse protocol(Event event, Frame_Base *frame = nullptr);
+    // ProtocolResponse protocol(Event event, Frame_Base *frame = nullptr);
+    bool protocol(Event event, Frame_Base *frame = nullptr);
 
     // Abdelazizs' functions
 private:
-    bool thereIsAnError(std::vector<std::bitset<8>> &wordBytes, std::bitset<8> parityByte);
-    std::string framing(std::string Payload, Frame_Base *frame);
-    std::string deFraming(string framedPayload);
+    Frame_Base* framing(std::string Payload);
+    std::string deFraming(Frame_Base* framedPayload);
     std::string applyByteStuffing(std::string Payload);
-    void createCheckSum(std::string Payload, Frame_Base *frame);
+    std::string removeByteStuffing(std::string Payload);
+    char createCheckSum(std::string Payload);
     Byte binaryAddition(std::deque<Byte> bytes);
-    bool validateCheckSum(std::string Payload, Frame_Base *frame);
+    bool validateCheckSum(Frame_Base *frame);
+
+    void increment(SeqNum &seq);
+    void startTimer(SeqNum frame_num);
+    void stopTimer(SeqNum frame_num);
+    void send(SeqNum frame_num, Time delay);
 };
 
 #endif

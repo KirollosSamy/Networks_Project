@@ -12,27 +12,30 @@
 
 typedef float Time;
 typedef unsigned int SeqNum;
-typedef std::bitset<4> ErrorCode;
+typedef std::bitset<4> FrameErrorCode;
 typedef std::bitset<8> Byte;
 typedef std::vector<Byte> ByteStream;
 
-enum class FrameType {
+enum class FrameType
+{
     NACK,
     ACK,
     DATA,
 };
 
-enum class Event {
+enum class Event
+{
     FRAME_ARRIVAL,
-    CHECKSUM_ERR,
+    // CHECKSUM_ERR,
     TIMEOUT,
     NETWORK_LAYER_READY,
 };
 
 // To be used in self messages in msg->kind
 // Add any you need
-enum class MsgType {
-    SEND_FRAME, //initial send_frame msg will be sent by coordinator
+enum class MsgType
+{
+    SEND_FRAME, // initial send_frame msg will be sent by coordinator
     TIMEOUT,
 };
 
@@ -50,13 +53,12 @@ struct NetworkParameters
 // Add any data you need from protocol -> node
 struct ProtocolResponse
 {
-    Frame_Base* frame = nullptr;
+    Frame_Base *frame = nullptr;
     bool timer = false;
     bool more_msgs = true;
 };
 
-
 // Overloading the << operator of FrameType for logging purposes
-std::ostream& operator<<(std::ostream& os, FrameType frame_type);
+std::ostream &operator<<(std::ostream &os, FrameType frame_type);
 
 #endif
