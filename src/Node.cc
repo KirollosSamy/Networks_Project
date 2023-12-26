@@ -26,7 +26,7 @@ Node::~Node()
 
 void Node::handleMessage(cMessage *msg)
 {
-    Frame_Base *frame = static_cast<Frame_Base *>(msg);
+    Frame_Base* frame = dynamic_cast<Frame_Base*>(msg);
 
     // in case of recieving a frame
     if (frame != nullptr)

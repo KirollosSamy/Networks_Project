@@ -7,6 +7,7 @@
 #include "network_layer.h"
 #include <deque>
 #include <omnetpp.h>
+#include "utils.h"
 
 using namespace std;
 using namespace omnetpp;
@@ -14,10 +15,12 @@ using namespace omnetpp;
 class GoBackN
 {
     NetworkParameters par;
+    int node_id;
 
     int MAX_SEQUENCE;
     vector<Frame_Base *> buffer;
-    vector<cMessage *> Timers;
+    vector<cMessage *> timers;
+    vector<FrameErrorCode> error_codes;
 
     NetworkLayer *network_layer;
     Logger *logger;
@@ -29,8 +32,6 @@ class GoBackN
     SeqNum next_frame_to_send;  // The sequence number of the frame to be send
     SeqNum ack_expected;        // The sequence number of the first unacknowledged frame
     int num_outstanding_frames; // The number of frames currently in buffer (must be <= MAX_SEQUENCE)
-
-    bool DEBUG = true;
 
     cSimpleModule *node;
 
@@ -54,7 +55,7 @@ private:
     void increment(SeqNum &seq);
     void startTimer(SeqNum frame_num);
     void stopTimer(SeqNum frame_num);
-    void send(SeqNum frame_num, Time delay);
+    void send(SeqNum frame_num, Time frame_delay, bool error = true);
 };
 
 #endif

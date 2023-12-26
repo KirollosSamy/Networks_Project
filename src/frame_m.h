@@ -65,9 +65,9 @@ protected:
   int FrameType = 0;
   unsigned int AckNum = 0;
 
-  void copy(const Frame_Base &other);
+  void copy(const Frame_Base& other);
 
-  bool operator==(const Frame_Base &) = delete;
+  bool operator==(const Frame_Base&) = delete;
 
 public:
   Frame_Base();
@@ -75,17 +75,20 @@ public:
   // Frame_Base(const char *name = nullptr, short kind = 0);
   // Frame_Base(const Frame_Base &other);
   // make assignment operator protected to force the user override it
-  Frame_Base &operator=(const Frame_Base &other);
+  Frame_Base& operator=(const Frame_Base& other);
   virtual ~Frame_Base();
-  virtual Frame_Base *dup() const override { throw omnetpp::cRuntimeError("You forgot to manually add a dup() function to class Frame"); }
-  virtual void parsimPack(omnetpp::cCommBuffer *b) const override;
-  virtual void parsimUnpack(omnetpp::cCommBuffer *b) override;
+  virtual Frame_Base* dup() const override {
+    // throw omnetpp::cRuntimeError("You forgot to manually add a dup() function to class Frame");
+    return new Frame_Base(*this);
+  }
+  virtual void parsimPack(omnetpp::cCommBuffer* b) const override;
+  virtual void parsimUnpack(omnetpp::cCommBuffer* b) override;
 
   virtual unsigned int getHeader() const;
   virtual void setHeader(unsigned int Header);
 
-  virtual const char *getPayload() const;
-  virtual void setPayload(const char *Payload);
+  virtual const char* getPayload() const;
+  virtual void setPayload(const char* Payload);
 
   virtual char getTrailer() const;
   virtual void setTrailer(char Trailer);
@@ -101,7 +104,7 @@ namespace omnetpp
 {
 
   template <>
-  inline Frame_Base *fromAnyPtr(any_ptr ptr) { return check_and_cast<Frame_Base *>(ptr.get<cObject>()); }
+  inline Frame_Base* fromAnyPtr(any_ptr ptr) { return check_and_cast<Frame_Base*>(ptr.get<cObject>()); }
 
 } // namespace omnetpp
 
