@@ -9,6 +9,7 @@ std::ostream& operator<<(std::ostream& os, FrameType frame_type) {
         break;
     case FrameType::NACK:
         os << "NACK";
+        break;
     case FrameType::DATA:
         os << "DATA";
         break;

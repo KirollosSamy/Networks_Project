@@ -22,34 +22,38 @@ struct LogData
     std::string payload;
     FrameType frame_type;
     FrameErrorCode error_code;
-    bool lost;
-
     Byte trailer;
+
     int modified;
+    bool lost;
     int duplicate;
-    int delay;
+    Time delay;
 };
 
+// A class for logging
+// Implements the Singleton desing pattern which means that only one object can be instantiated
 class Logger
 {
-    //  the file in which we will log inside.
-    std::ofstream logfile;
-    std::string fileName;
 
-public:
+private:
+    std::ofstream logfile;
+
+    // A pointer to the unique logger object
+    static Logger* logger;
+
+    // The constructor should be private to avoid instantiation
     Logger(std::string filename);
 
-    bool log(LogType type, LogData data);
+public:
+    void log(LogType type, LogData data);
 
-    // PROCESSING: error_code
-    // SENDING: payload, seqnum, trailer, modified, duplicate, delay, lost
-    // TIME_OUT: seqnum
-    // CONTROL: frame_type, seqnum, lost
-    // RECEIVING: payload, seqnum
+    static Logger* GetLogger(const std::string& filename);
 
-    // LogData should contain the needed data for each type
-    //    LogData lgData = {.time= 1, .delay}
-    //    log(LogType::Sending,lgData)
+    // Delete copy constructor and assignment operator because the object should be singleton
+    Logger(Logger& other) = delete;
+    void operator=(const Logger&) = delete;
+
+    ~Logger();
 };
 
 #endif

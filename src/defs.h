@@ -10,7 +10,7 @@
 #define FLAG '$'
 #define ESC '/'
 
-typedef float Time;
+typedef double Time;
 typedef unsigned int SeqNum;
 typedef std::bitset<4> FrameErrorCode;
 typedef std::bitset<8> Byte;
