@@ -5,10 +5,14 @@ int getNodeId(const char* name){
     return name[4] - '0';
 }
 
-/* Return true if a <= b < c circularly; false otherwise. */
-bool between(SeqNum a, SeqNum b, SeqNum c)
+bool _between(SeqNum a, SeqNum b, SeqNum c)
 {
     return ((a <= b) && (b < c)) || ((c < a) && (a <= b)) || ((b < c) && (c < a));
+}
+
+/* Return true if a <= b <= c circularly; false otherwise. */
+bool between(SeqNum a,SeqNum b, SeqNum c){
+    return _between(a,b,c+1); 
 }
 
 ByteStream toByteStream(std::string str){

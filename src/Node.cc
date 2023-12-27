@@ -19,33 +19,39 @@ void Node::initialize()
     go_back_N = new GoBackN(WS, parameters, node_id, this);
 }
 
+void Node::handleMessage(cMessage* msg)
+{
+    Event event;
+    Frame_Base* frame = dynamic_cast<Frame_Base*>(msg);
+
+    if (frame != nullptr)
+        event = Event::FRAME_ARRIVAL;
+
+    else if (msg->getKind() == (short)MsgType::SEND_FRAME)
+        event = Event::NETWORK_LAYER_READY; 
+
+    else if (msg->getKind() == (short)MsgType::TIMEOUT)
+        event = Event::TIMEOUT;
+        
+    bool network_layer_enabled = go_back_N->protocol(event, frame);
+
+    // Send a self msg after PT to send the next frame, only if the network_layer is enabled to avoid exceeding the window size. 
+    if (network_layer_enabled) {
+        // the next frame should be sent after finishing the processing of the current msg. 
+        Time time;
+        if(event ==  Event::FRAME_ARRIVAL)
+            time = simTime().dbl();
+        else if (event == Event::NETWORK_LAYER_READY)
+            time = simTime().dbl() + parameters.PT;
+        else 
+            return;  // Time out, this wont happen, but for safezone.
+        cMessage* msg = new cMessage();
+        msg->setKind((short)MsgType::SEND_FRAME);
+        scheduleAt(time, msg);
+    }
+} 
+
 Node::~Node()
 {
     delete this->go_back_N;
-}
-
-void Node::handleMessage(cMessage *msg)
-{
-    Frame_Base* frame = dynamic_cast<Frame_Base*>(msg);
-
-    // in case of recieving a frame
-    if (frame != nullptr)
-        go_back_N->protocol(Event::FRAME_ARRIVAL, frame);
-
-    // when we want to send a frame.
-    else if (msg->getKind() == (short)MsgType::SEND_FRAME)
-    {
-        bool more_frames = go_back_N->protocol(Event::NETWORK_LAYER_READY);
-
-        if (more_frames)
-        {
-            // this is a reminder to send the next frame after the processing time of t
-            Time time = simTime().dbl() + parameters.PT; // replace with the actual time to send, I guess simtime() + PT
-            cMessage *msg = new cMessage();
-            msg->setKind((short)MsgType::SEND_FRAME);
-            scheduleAt(time, msg);
-        }
-    }
-    else if (msg->getKind() == (short)MsgType::TIMEOUT)
-        go_back_N->protocol(Event::TIMEOUT);
 }

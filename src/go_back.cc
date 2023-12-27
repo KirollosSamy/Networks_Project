@@ -21,8 +21,9 @@ GoBackN::GoBackN(int WS, NetworkParameters parameters, int node_id, cSimpleModul
     // initially all of them are 0.
     frame_expected = 0;
     next_frame_to_send = 0;
-    ack_expected = 0;
+    ack_expected = 1;
     num_outstanding_frames = 0;
+    more_msgs = true;
     node = node_ptr;
 }
 
@@ -225,14 +226,14 @@ Frame_Base* GoBackN::framing(std::string Payload)
     return frame;
 }
 
-void GoBackN::startTimer(SeqNum frame_num)
+void GoBackN::startTimer(SeqNum frame_num, Time delay)
 {
     cMessage* timer_msg = new cMessage();
     timer_msg->setKind((short)MsgType::TIMEOUT);
 
     timers[frame_num] = timer_msg;
 
-    node->scheduleAt(simTime().dbl() + par.TO, timer_msg);
+    node->scheduleAt(simTime().dbl() + par.TO + delay, timer_msg);
 }
 
 /*
@@ -249,7 +250,8 @@ void GoBackN::stopTimer(SeqNum frame_num)
 
 void GoBackN::send(SeqNum frame_num, Time delay, bool error)
 {
-    Frame_Base* frame = buffer[frame_num];
+    // A duplicate is sent not the original frame to avoid two parties owning the same frame object
+    Frame_Base* frame = buffer[frame_num]->dup();
 
     FrameErrorCode error_code = error_codes[frame_num];
     bool modification = error_code[3] && error;
@@ -268,7 +270,7 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
 
     // Logging
     LogData logdata = {
-        .time = simTime().dbl(),
+        .time = simTime().dbl() + par.PT,
         .node = node_id,
         .seq_num = frame_num,
         .payload = frame->getPayload(),
@@ -292,8 +294,6 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
         if (!loss) node->sendDelayed(dup_frame, delay + par.DD, "out");
     }
 
-    startTimer(frame_num);
-
     // return the original payload before modification
     frame->setPayload(payload.c_str());
 }
@@ -304,21 +304,36 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
 */
 void GoBackN::increment(SeqNum& seq)
 {
-    seq = (seq + 1) % MAX_SEQUENCE;
+    seq = (seq + 1) % (MAX_SEQUENCE + 1);
 }
 
 bool GoBackN::protocol(Event event, Frame_Base* frame)
 {
-    bool more_frames = true;
+    bool network_layer_enabled = false;
     FrameErrorCode error_code;
     std::string payLoad = "";
     LogData logdata;
+    /*
+      sender
+      next_frame_to_Send = 4; [1,2,3,4]
+      expected_akc = 2
+      send(4).
+      startTimer(4).
+      next_frame_toSend = 5.
+      -------------------------
+      getting ack 4
+      (between(2,..,5){
+        stopTimer(expected_ack - 1). 2
+        stopTimer(expected_ack - 1). 3
+        stopTimer(expected_ack - 1). 4
+      }
 
+    */
     switch (event) {
     case Event::NETWORK_LAYER_READY:
-        more_frames = network_layer->getMsg(error_code, payLoad);
+        more_msgs = network_layer->getMsg(error_code, payLoad);
 
-        if (more_frames) {
+        if (more_msgs) {
             // Logging
             logdata = { .time = simTime().dbl(), .node = node_id, .error_code = error_code };
             logger->log(LogType::PROCESSING, logdata);
@@ -327,11 +342,15 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
             buffer[next_frame_to_send] = newFrame;
             error_codes[next_frame_to_send] = error_code;
 
-            Time delay = par.TD;
+            Time delay = par.PT + par.TD;
             send(next_frame_to_send, delay);
+            startTimer(next_frame_to_send, par.PT);
 
             num_outstanding_frames = num_outstanding_frames + 1;
             increment(next_frame_to_send);
+
+            if (num_outstanding_frames < MAX_SEQUENCE)
+                network_layer_enabled = true;
         }
 
         break;
@@ -342,7 +361,8 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
 
             if (recieved_seq_num == frame_expected) {
                 // The ack frame is lost with probability par.LP
-                bool lost = uniform_real(0, 1) >= par.LP;
+                //! TODO, check on the uniform real as it returns a constant value. 
+                bool lost = uniform_real(0, 1) <= par.LP;
 
                 bool valid = validateCheckSum(frame);
                 if (valid) { // +ve ACK
@@ -357,28 +377,30 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
                     };
                     logger->log(LogType::RECEIVING, logdata);
 
-                    if (lost) {
+                    if (!lost) {
                         // create ack frame
                         Frame_Base* ack_frame = new Frame_Base();
+                        // ack on expected + 1
                         ack_frame->setAckNum(frame_expected + 1);
                         ack_frame->setFrameType((int)FrameType::ACK);
-                        node->send(ack_frame, "out");
+                        node->sendDelayed(ack_frame, par.PT + par.TD, "out");
                     }
 
                     increment(frame_expected);
                 }
                 else { // -ve ACK
-                    if (lost) {
+                    if (!lost) {
                         Frame_Base* nack_frame = new Frame_Base();
                         nack_frame->setAckNum(frame_expected);
                         nack_frame->setFrameType((int)FrameType::NACK);
-                        node->send(nack_frame, "out");
+                        node->sendDelayed(nack_frame, par.PT + par.TD, "out");
+                        // node->sendDelayed(nack_frame, 0.001 + par.TD, "out");
                     }
                 }
 
                 // Logging
                 logdata = {
-                    .time = simTime().dbl(),
+                    .time = simTime().dbl() + par.PT,
                     .node = node_id,
                     .seq_num = frame_expected,
                     .frame_type = valid ? FrameType::ACK : FrameType::NACK,
@@ -392,24 +414,32 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
         else if (frame->getFrameType() == (int)FrameType::ACK) {
             SeqNum ack_received = frame->getAckNum();
 
-            // Accumulative ack
+            // If the window was previously full and a valid ack was received, then reenable the network_layer 
+            // given that they're more msgs to send.
+            bool valid_ack = between(ack_expected, ack_received, next_frame_to_send);
+            bool full_window = num_outstanding_frames == MAX_SEQUENCE;
+            if (valid_ack && full_window && more_msgs)
+                network_layer_enabled = true;
+
+            // Accumulative ack 
             while (between(ack_expected, ack_received, next_frame_to_send)) {
                 num_outstanding_frames = num_outstanding_frames - 1;
-                stopTimer(ack_expected);
+                stopTimer(ack_expected - 1);
                 increment(ack_expected);
             }
-
         }
         else {
             SeqNum nack_received = frame->getAckNum();
             Time delay = par.PT + 0.001 + par.TD;
             send(nack_received, delay, false);
+            startTimer(nack_received, par.PT + 0.001);
         }
 
         break;
 
     case Event::TIMEOUT:
-        next_frame_to_send = ack_expected;
+        // return the pointer to the start of the window. 
+        next_frame_to_send = ack_expected - 1;
 
         // Logging
         logdata = { .time = simTime().dbl(), .node = node_id, .seq_num = next_frame_to_send };
@@ -419,15 +449,12 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
             // The first frame that caused the timeout should be send error free
             bool error = (i == 1) ? false : true;
 
-            Time delay = par.PT + par.TD;
+            Time delay = i * par.PT + par.TD;
             send(next_frame_to_send, delay, error);
-
+            startTimer(next_frame_to_send, i * par.PT);
             increment(next_frame_to_send);
         }
-        break;
-
-    default: break;
     }
 
-    return more_frames;
+    return network_layer_enabled;
 }
