@@ -266,11 +266,9 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
         frame->setPayload(modified_payload.c_str());
     }
 
-    if (error_delay) delay += par.ED;
-
     // Logging
     LogData logdata = {
-        .time = simTime().dbl() + par.PT,
+        .time = simTime().dbl() + (delay - par.TD),
         .node = node_id,
         .seq_num = frame_num,
         .payload = frame->getPayload(),
@@ -281,6 +279,8 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
         .delay = error_delay ? par.ED : 0,
     };
     logger->log(LogType::SENDING, logdata);
+
+    if (error_delay) delay += par.ED;
 
     if (!loss) node->sendDelayed(frame, delay, "out");
 
@@ -295,7 +295,7 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
     }
 
     // return the original payload before modification
-    frame->setPayload(payload.c_str());
+    // frame->setPayload(payload.c_str());
 }
 
 /*
@@ -304,7 +304,7 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
 */
 void GoBackN::increment(SeqNum& seq)
 {
-    seq = (seq + 1) % (MAX_SEQUENCE + 1);
+    seq = Mod(seq + 1, MAX_SEQUENCE + 1);
 }
 
 bool GoBackN::protocol(Event event, Frame_Base* frame)
@@ -362,8 +362,9 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
             if (recieved_seq_num == frame_expected) {
                 // The ack frame is lost with probability par.LP
                 //! TODO, check on the uniform real as it returns a constant value. 
-                bool lost = uniform_real(0, 1) <= par.LP;
+                bool lost = uniform_real(0, 1) < par.LP;
 
+                EV << frame->getPayload() << endl;
                 bool valid = validateCheckSum(frame);
                 if (valid) { // +ve ACK
                     std::string received_payload = deFraming(frame);
@@ -381,7 +382,7 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
                         // create ack frame
                         Frame_Base* ack_frame = new Frame_Base();
                         // ack on expected + 1
-                        ack_frame->setAckNum(frame_expected + 1);
+                        ack_frame->setAckNum(Mod(frame_expected + 1, MAX_SEQUENCE + 1));
                         ack_frame->setFrameType((int)FrameType::ACK);
                         node->sendDelayed(ack_frame, par.PT + par.TD, "out");
                     }
@@ -424,7 +425,7 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
             // Accumulative ack 
             while (between(ack_expected, ack_received, next_frame_to_send)) {
                 num_outstanding_frames = num_outstanding_frames - 1;
-                stopTimer(ack_expected - 1);
+                stopTimer(Mod(ack_expected - 1, MAX_SEQUENCE + 1));
                 increment(ack_expected);
             }
         }
@@ -439,7 +440,7 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
 
     case Event::TIMEOUT:
         // return the pointer to the start of the window. 
-        next_frame_to_send = ack_expected - 1;
+        next_frame_to_send = Mod(ack_expected - 1, MAX_SEQUENCE + 1);
 
         // Logging
         logdata = { .time = simTime().dbl(), .node = node_id, .seq_num = next_frame_to_send };
@@ -450,8 +451,13 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
             bool error = (i == 1) ? false : true;
 
             Time delay = i * par.PT + par.TD;
+
+            // because we are now at the case which caused the timeout. 
+            if (i != 1) stopTimer(next_frame_to_send);
+
             send(next_frame_to_send, delay, error);
             startTimer(next_frame_to_send, i * par.PT);
+
             increment(next_frame_to_send);
         }
     }

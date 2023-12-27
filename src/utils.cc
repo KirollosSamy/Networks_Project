@@ -1,6 +1,13 @@
 #include "utils.h"
 #include <random>
 
+int Mod (int n, int m) {
+    while(n < 0){
+        n += m ;
+    }   
+    return n % m ; 
+}
+
 int getNodeId(const char* name){
     return name[4] - '0';
 }
