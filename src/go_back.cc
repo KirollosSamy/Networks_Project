@@ -5,14 +5,14 @@ GoBackN::GoBackN()
     // empty default constructor.
 }
 
-GoBackN::GoBackN(int WS, NetworkParameters parameters, int node_id, cSimpleModule* node_ptr)
+GoBackN::GoBackN(int WS, NetworkParameters parameters, int node_id, cSimpleModule *node_ptr)
 {
     MAX_SEQUENCE = WS; // as stated in the document, the maximum seq number is the window size.
     par = parameters;
     this->node_id = node_id;
 
-    buffer = std::vector<Frame_Base*>(WS + 1);
-    timers = std::vector<cMessage*>(WS + 1);
+    buffer = std::vector<Frame_Base *>(WS + 1);
+    timers = std::vector<cMessage *>(WS + 1);
     error_codes = std::vector<FrameErrorCode>(WS + 1);
 
     network_layer = new NetworkLayer("../input/input" + std::to_string(node_id) + ".txt");
@@ -47,10 +47,12 @@ Byte GoBackN::binaryAddition(std::deque<Byte> bytes)
     if (bytes.empty())
         return result;
 
-    for (auto byte : bytes) {
+    for (auto byte : bytes)
+    {
         // EV << byte.to_string() << endl;
         int carry = 0;
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 8; i++)
+        {
             // this is the full adder logic.
             int sum = result[i] + byte[i] + carry;
             carry = sum / 2;
@@ -59,9 +61,10 @@ Byte GoBackN::binaryAddition(std::deque<Byte> bytes)
         // this is the logic in the check sum, when there is a carry at the last bit.
         // we create new byte of weight = 1, and add its value to the result.
         // EV << result.to_string() << "  is the result \n";
-        if (carry) {
+        if (carry)
+        {
             Byte overFlowByte(1);
-            result = binaryAddition({ result, overFlowByte });
+            result = binaryAddition({result, overFlowByte});
             // EV << result.to_string() << "  is the result after adding carry\n";
         }
     }
@@ -100,7 +103,7 @@ char GoBackN::createCheckSum(std::string Payload)
     This function is responsible for validating the message using the checksum
     TESTED
 */
-bool GoBackN::validateCheckSum(Frame_Base* frame)
+bool GoBackN::validateCheckSum(Frame_Base *frame)
 {
     std::string Payload = frame->getPayload();
 
@@ -130,7 +133,7 @@ bool GoBackN::validateCheckSum(Frame_Base* frame)
     Utility function used to remove the start and end flags.
     and remove the stuffed bytes.
 */
-std::string GoBackN::deFraming(Frame_Base* recievedFrame)
+std::string GoBackN::deFraming(Frame_Base *recievedFrame)
 {
     string recievedPayload = recievedFrame->getPayload();
 
@@ -153,7 +156,8 @@ std::string GoBackN::deFraming(Frame_Base* recievedFrame)
 std::string GoBackN::applyByteStuffing(std::string Payload)
 {
     std::string newPayload;
-    for (auto c : Payload) {
+    for (auto c : Payload)
+    {
         // append the ESC before any Flag or ESC
         if (c == FLAG || c == ESC)
             newPayload += ESC;
@@ -172,13 +176,16 @@ std::string GoBackN::removeByteStuffing(std::string payload)
     bool findEsc = false;
     std::string newPayload = "";
 
-    for (char c : payload) {
-        if (findEsc) {
+    for (char c : payload)
+    {
+        if (findEsc)
+        {
             findEsc = false;
             newPayload += c;
             continue;
         }
-        if (c == ESC) {
+        if (c == ESC)
+        {
             findEsc = true;
             continue;
         }
@@ -194,10 +201,10 @@ std::string GoBackN::removeByteStuffing(std::string payload)
     TESTED
 */
 
-Frame_Base* GoBackN::framing(std::string Payload)
+Frame_Base *GoBackN::framing(std::string Payload)
 {
-    Frame_Base* frame = new Frame_Base();
-    // we always send a data. 
+    Frame_Base *frame = new Frame_Base();
+    // we always send a data.
     frame->setFrameType((int)FrameType::DATA);
 
     std::string newPayload;
@@ -228,11 +235,15 @@ Frame_Base* GoBackN::framing(std::string Payload)
 
 void GoBackN::startTimer(SeqNum frame_num, Time delay)
 {
-    cMessage* timer_msg = new cMessage();
+    cMessage *timer_msg = new cMessage();
     timer_msg->setKind((short)MsgType::TIMEOUT);
 
     timers[frame_num] = timer_msg;
 
+    if (simTime().dbl() + par.TO + delay == 25.5)
+    {
+        EV << buffer[frame_num]->getPayload() << ' ' << frame_num << endl;
+    }
     node->scheduleAt(simTime().dbl() + par.TO + delay, timer_msg);
 }
 
@@ -241,17 +252,18 @@ void GoBackN::startTimer(SeqNum frame_num, Time delay)
 */
 void GoBackN::stopTimer(SeqNum frame_num)
 {
-    cMessage* timer_msg = timers[frame_num];
+    // cMessage *timer_msg = timers[frame_num];
 
     // This is used to cancel the timer msg previously sent, thus canceling the timer
-    node->cancelEvent(timer_msg);
-    delete timer_msg;
+    node->cancelEvent(timers[frame_num]);
+    // delete timer_msg;
+    delete timers[frame_num];
 }
 
 void GoBackN::send(SeqNum frame_num, Time delay, bool error)
 {
     // A duplicate is sent not the original frame to avoid two parties owning the same frame object
-    Frame_Base* frame = buffer[frame_num]->dup();
+    Frame_Base *frame = buffer[frame_num]->dup();
 
     FrameErrorCode error_code = error_codes[frame_num];
     bool modification = error_code[3] && error;
@@ -261,7 +273,8 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
 
     int modified_bit;
     std::string payload = frame->getPayload();
-    if (modification) {
+    if (modification)
+    {
         std::string modified_payload = addRandomError(payload, modified_bit);
         frame->setPayload(modified_payload.c_str());
     }
@@ -280,18 +293,23 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
     };
     logger->log(LogType::SENDING, logdata);
 
-    if (error_delay) delay += par.ED;
+    if (error_delay)
+        delay += par.ED;
 
-    if (!loss) node->sendDelayed(frame, delay, "out");
+    if (!loss)
+        node->sendDelayed(frame, delay, "out");
 
-    if (duplication) {
-        Frame_Base* dup_frame = frame->dup();
+    if (duplication)
+    {
+        Frame_Base *dup_frame = frame->dup();
 
         // Logging
         logdata.duplicate = 2;
+        logdata.time += par.DD;
         logger->log(LogType::SENDING, logdata);
 
-        if (!loss) node->sendDelayed(dup_frame, delay + par.DD, "out");
+        if (!loss)
+            node->sendDelayed(dup_frame, delay + par.DD, "out");
     }
 
     // return the original payload before modification
@@ -302,12 +320,12 @@ void GoBackN::send(SeqNum frame_num, Time delay, bool error)
     utility function used to increment the value of the sequnce number,
     and get it back to 0 if it exceeded the maximum sequnce value.
 */
-void GoBackN::increment(SeqNum& seq)
+void GoBackN::increment(SeqNum &seq)
 {
     seq = Mod(seq + 1, MAX_SEQUENCE + 1);
 }
 
-bool GoBackN::protocol(Event event, Frame_Base* frame)
+bool GoBackN::protocol(Event event, Frame_Base *frame)
 {
     bool network_layer_enabled = false;
     FrameErrorCode error_code;
@@ -329,16 +347,18 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
       }
 
     */
-    switch (event) {
+    switch (event)
+    {
     case Event::NETWORK_LAYER_READY:
         more_msgs = network_layer->getMsg(error_code, payLoad);
 
-        if (more_msgs) {
+        if (more_msgs)
+        {
             // Logging
-            logdata = { .time = simTime().dbl(), .node = node_id, .error_code = error_code };
+            logdata = {.time = simTime().dbl(), .node = node_id, .error_code = error_code};
             logger->log(LogType::PROCESSING, logdata);
 
-            Frame_Base* newFrame = framing(payLoad);
+            Frame_Base *newFrame = framing(payLoad);
             buffer[next_frame_to_send] = newFrame;
             error_codes[next_frame_to_send] = error_code;
 
@@ -356,17 +376,20 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
         break;
     case Event::FRAME_ARRIVAL:
 
-        if (frame->getFrameType() == (int)FrameType::DATA) {
+        if (frame->getFrameType() == (int)FrameType::DATA)
+        {
             SeqNum recieved_seq_num = frame->getHeader();
 
-            if (recieved_seq_num == frame_expected) {
+            if (recieved_seq_num == frame_expected)
+            {
                 // The ack frame is lost with probability par.LP
-                //! TODO, check on the uniform real as it returns a constant value. 
+                //! TODO, check on the uniform real as it returns a constant value.
                 bool lost = uniform_real(0, 1) < par.LP;
 
-                EV << frame->getPayload() << endl;
+                // EV << frame->getPayload() << endl;
                 bool valid = validateCheckSum(frame);
-                if (valid) { // +ve ACK
+                if (valid)
+                { // +ve ACK
                     std::string received_payload = deFraming(frame);
 
                     // Logging
@@ -378,9 +401,10 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
                     };
                     logger->log(LogType::RECEIVING, logdata);
 
-                    if (!lost) {
+                    if (!lost)
+                    {
                         // create ack frame
-                        Frame_Base* ack_frame = new Frame_Base();
+                        Frame_Base *ack_frame = new Frame_Base();
                         // ack on expected + 1
                         ack_frame->setAckNum(Mod(frame_expected + 1, MAX_SEQUENCE + 1));
                         ack_frame->setFrameType((int)FrameType::ACK);
@@ -389,9 +413,12 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
 
                     increment(frame_expected);
                 }
-                else { // -ve ACK
-                    if (!lost) {
-                        Frame_Base* nack_frame = new Frame_Base();
+                else
+                { // -ve ACK
+                    if (!lost)
+                    {
+                        Frame_Base *nack_frame = new Frame_Base();
+                        EV << "NACK seqNo: " << frame_expected << endl;
                         nack_frame->setAckNum(frame_expected);
                         nack_frame->setFrameType((int)FrameType::NACK);
                         node->sendDelayed(nack_frame, par.PT + par.TD, "out");
@@ -412,25 +439,30 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
         }
 
         // Sender
-        else if (frame->getFrameType() == (int)FrameType::ACK) {
+        else if (frame->getFrameType() == (int)FrameType::ACK)
+        {
             SeqNum ack_received = frame->getAckNum();
 
-            // If the window was previously full and a valid ack was received, then reenable the network_layer 
+            // If the window was previously full and a valid ack was received, then reenable the network_layer
             // given that they're more msgs to send.
             bool valid_ack = between(ack_expected, ack_received, next_frame_to_send);
             bool full_window = num_outstanding_frames == MAX_SEQUENCE;
             if (valid_ack && full_window && more_msgs)
                 network_layer_enabled = true;
 
-            // Accumulative ack 
-            while (between(ack_expected, ack_received, next_frame_to_send)) {
+            // Accumulative ack
+            while (between(ack_expected, ack_received, next_frame_to_send))
+            {
                 num_outstanding_frames = num_outstanding_frames - 1;
                 stopTimer(Mod(ack_expected - 1, MAX_SEQUENCE + 1));
                 increment(ack_expected);
             }
         }
-        else {
+        else
+        {
             SeqNum nack_received = frame->getAckNum();
+            // stop the previous timer.
+            stopTimer(nack_received);
             Time delay = par.PT + 0.001 + par.TD;
             send(nack_received, delay, false);
             startTimer(nack_received, par.PT + 0.001);
@@ -439,24 +471,27 @@ bool GoBackN::protocol(Event event, Frame_Base* frame)
         break;
 
     case Event::TIMEOUT:
-        // return the pointer to the start of the window. 
+        // return the pointer to the start of the window.
         next_frame_to_send = Mod(ack_expected - 1, MAX_SEQUENCE + 1);
 
         // Logging
-        logdata = { .time = simTime().dbl(), .node = node_id, .seq_num = next_frame_to_send };
+        logdata = {.time = simTime().dbl(), .node = node_id, .seq_num = next_frame_to_send};
         logger->log(LogType::TIME_OUT, logdata);
 
-        for (int i = 1; i <= num_outstanding_frames; i++) {
+        for (int i = 1; i <= num_outstanding_frames; i++)
+        {
             // The first frame that caused the timeout should be send error free
             bool error = (i == 1) ? false : true;
 
-            Time delay = i * par.PT + par.TD;
+            // Time delay = i * par.PT + par.TD;
+            Time delay = i * par.PT + par.TD + 0.001;
 
-            // because we are now at the case which caused the timeout. 
-            if (i != 1) stopTimer(next_frame_to_send);
+            // because we are now at the case which caused the timeout.
+            if (i != 1)
+                stopTimer(next_frame_to_send);
 
             send(next_frame_to_send, delay, error);
-            startTimer(next_frame_to_send, i * par.PT);
+            startTimer(next_frame_to_send, i * par.PT + 0.001);
 
             increment(next_frame_to_send);
         }
